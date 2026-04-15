@@ -1,0 +1,17 @@
+# config.yaml
+dataset:
+  dataset_path: /data/user_data/mehulg/robomimic
+  dataset_name: robomimic  # Can be overridden with --dataset.dataset_name
+
+output:
+  output_dir: ./robometer_dataset/robomimic_rfm
+  max_trajectories: -1
+  max_frames: 64
+  use_video: true
+  fps: 10
+  shortest_edge_size: 240
+  center_crop: false
+
+hub:
+  push_to_hub: false
+  hub_repo_id: robomimic_rfm

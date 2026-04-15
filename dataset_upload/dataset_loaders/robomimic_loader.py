@@ -125,6 +125,8 @@ def load_robomimic_dataset(
         Dictionary mapping "{task}_{split}" keys to lists of trajectory dicts.
     """
     base_path = Path(base_path)
+    if max_trajectories is not None and max_trajectories <= 0:
+        max_trajectories = None
     if not base_path.exists():
         raise FileNotFoundError(f"RoboMimic dataset path not found: {base_path}")
 

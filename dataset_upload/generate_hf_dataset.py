@@ -1034,6 +1034,15 @@ def main(cfg: GenerateConfig):
         print(f"Loading HAND_paired dataset from: {cfg.dataset.dataset_path}")
         task_data = load_hand_paired_dataset(cfg.dataset.dataset_path, cfg.dataset.dataset_name)
         trajectories = flatten_task_data(task_data)
+    elif "robomimic" in cfg.dataset.dataset_name.lower():
+        from dataset_upload.dataset_loaders.robomimic_loader import load_robomimic_dataset
+
+        print(f"Loading RoboMimic dataset from: {cfg.dataset.dataset_path}")
+        task_data = load_robomimic_dataset(
+            cfg.dataset.dataset_path,
+            max_trajectories=cfg.output.max_trajectories,
+        )
+        trajectories = flatten_task_data(task_data)
     elif "roboreward" in cfg.dataset.dataset_name.lower():
         from dataset_upload.dataset_loaders.roboreward_loader import load_roboreward_dataset
 
