@@ -20,6 +20,7 @@ oxe_robo_set,0.85
 oxe_stanford_hydra_dataset_converted_externally_to_rlds,1.0
 oxe_tokyo_u_lsmo_converted_externally_to_rlds,1.0
 oxe_toto,1.0
+robomimic_rbm, 1.0
 roboreward_austin_buds_dataset_converted_externally_to_rlds,0.95
 roboreward_austin_sirius_dataset_converted_externally_to_rlds,0.98
 roboreward_berkeley_autolab_ur5,0.90
