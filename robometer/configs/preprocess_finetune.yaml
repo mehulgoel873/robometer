@@ -12,17 +12,17 @@
 
 # Path to the converted dataset (output_dir/dataset_name from robofac.yaml = robometer_dataset/robofac/robofac)
 train_datasets:
-  - "aliangdw/robofac_rbm"
+  - "mehulgoel/robomimic_rbm_train"
 
 # Single subset matching generate_hf_dataset output (config name = dataset_name = robofac)
 train_subsets:
-  - ["robofac"]
+  - ["robomimic"]
 
 eval_datasets:
-  - "aliangdw/robofac_rbm"
+  - "mehulgoel/robomimic_rbm_eval"
 
 eval_subsets:
-  - ["robofac"]
+  - ["robomimic_eval"]
 
 max_frames_for_preprocessing: 32
 video_frame_sampling: "uniform"

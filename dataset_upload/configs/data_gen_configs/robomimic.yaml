@@ -7,6 +7,7 @@ output:
   output_dir: ./robometer_dataset/robomimic_rfm
   max_trajectories: -1
   max_frames: 64
+  num_workers:  8 # Keep this low: HDF5 reads + ffmpeg encoding can crash the node when auto-scaled.
   use_video: true
   fps: 10
   shortest_edge_size: 240
