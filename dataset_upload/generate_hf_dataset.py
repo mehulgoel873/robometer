@@ -97,6 +97,8 @@ BASE_FEATURES = {
     "partial_success": datasets.Value("float32"),  # in [0, 1]
 }
 
+MAX_AUTO_WORKERS = 8
+
 
 @dataclass
 class DatasetConfig:
@@ -227,9 +229,17 @@ def convert_dataset_to_hf_format(
     if max_trajectories != -1:
         trajectories = trajectories[:max_trajectories]
 
-    # Determine number of workers
+    # Determine number of workers. Cap auto-selection because HDF5 decoding plus
+    # ffmpeg video encoding can exhaust RAM / process limits when we fan out to
+    # all CPU cores on larger machines.
     if num_workers == -1:
-        num_workers = min(cpu_count(), len(trajectories))
+        auto_cpu_count = cpu_count()
+        num_workers = max(1, min(auto_cpu_count, len(trajectories), MAX_AUTO_WORKERS))
+        print(
+            "Auto-selected "
+            f"{num_workers} worker(s) (cpu_count={auto_cpu_count}, "
+            f"trajectories={len(trajectories)}, auto_cap={MAX_AUTO_WORKERS})"
+        )
     elif num_workers == 0:
         num_workers = 1  # Sequential processing
 
