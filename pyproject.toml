@@ -25,7 +25,7 @@ dependencies = [
     "einops>=0.8.0",
     "evaluate>=0.4.3",
     "h5py>=3.10.0",
-    "huggingface-hub[hf-xet]>0.35",
+    "huggingface-hub[cli,hf-xet]>0.35",
     "numpy>=1.21.0", # Compatible with modern PyTorch
     "matplotlib>=3.5.0",
     "peft",
@@ -63,7 +63,7 @@ dependencies = [
     "torchvision",
     "moviepy",
     "wandb[media]",
-    "torchcodec",
+    "torchcodec>=0.7,<0.8",
     "decord>=0.6.0",
     "unsloth>=2025.10",
     "gymnasium>=1.2.2",
@@ -78,7 +78,6 @@ dependencies = [
     "tensorflow==2.19", # just for oxe and other tfds dataset uploading
     "tf-keras>=2.19.0", # just for oxe and other tfds dataset uploading
     "protobuf<3.21", # just for oxe and other tfds dataset uploading
-
 ]
 
 [project.urls]
