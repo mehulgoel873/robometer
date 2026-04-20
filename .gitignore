@@ -8,3 +8,6 @@ baseline_eval_output/*
 
 robometer_dataset/
 uv.lock
+wandb/
+logs
+*.txt
