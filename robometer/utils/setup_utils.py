@@ -269,9 +269,14 @@ def _load_checkpoint_weights_from_safetensors(
 
         ipdb.set_trace()  # Breakpoint if progress_head didn't load
 
-    # Verify adapter weights loaded correctly (if PEFT is enabled)
+    # Verify adapter weights loaded correctly (if PEFT is enabled).
+    # Skip this when load_adapters=False: adapters were already loaded by
+    # PeftModel.from_pretrained at the submodule level, and this function's
+    # remap strategies don't understand the submodule key layout (e.g.
+    # checkpoint keys 'base_model.model.<layer>.lora_A...' vs. model keys
+    # 'model.language_model.base_model.model.<layer>.lora_A...').
     adapter_loaded_correctly = True
-    if cfg.use_peft and adapter_keys_before:
+    if cfg.use_peft and adapter_keys_before and load_adapters:
         model_state_dict_after = model.state_dict()
         adapter_keys_after = [k for k in model_state_dict_after.keys() if "lora_A" in k or "lora_B" in k]
 
