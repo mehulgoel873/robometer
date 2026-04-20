@@ -391,20 +391,31 @@ class SaveBestCallback(TrainerCallback):
         """
         model = self._trainer.model
 
-        # Check if we're using PEFT
-        is_peft = False
-        base_model = None
+        # Unwrap DDP/FSDP/accelerate wrappers if present (they expose `.module`, not `.model`)
+        inner_model = model
+        while hasattr(inner_model, "module") and not hasattr(inner_model, "model"):
+            inner_model = inner_model.module
 
-        # this depends on if model is wrapped via DDP/FSDP for multi-gpu training or something
-        if isinstance(model, PeftModel):
-            is_peft = True
-            base_model = model
-        elif hasattr(model, "model") and isinstance(model.model, PeftModel):
-            is_peft = True
-            base_model = model.model
+        # Locate the actual PeftModel submodule. Depending on how PEFT was attached
+        # (see setup_peft_model / apply_peft_before_wrap), the PeftModel may live at
+        # one of three locations.
+        peft_module = None
+        if hasattr(inner_model, "model"):
+            vl = inner_model.model
+            if isinstance(vl, PeftModel):
+                peft_module = vl
+            elif hasattr(vl, "language_model") and isinstance(vl.language_model, PeftModel):
+                peft_module = vl.language_model
+            elif hasattr(vl, "visual") and isinstance(vl.visual, PeftModel):
+                peft_module = vl.visual
+
+        is_peft = peft_module is not None
 
         if is_peft:
-            logger.info("Detected PEFT model - using standard PeftModel.save_pretrained() for adapter weights")
+            logger.info(
+                f"Detected PEFT model (peft submodule type: {type(peft_module).__name__}) - "
+                "using PeftModel.save_pretrained() for adapter weights"
+            )
             # For PEFT models, we need to save:
             # 1. Adapter weights using PeftModel.save_pretrained() (saves adapter_model.safetensors + adapter_config.json)
             # 2. Custom heads (progress_head, etc.) from RBM wrapper
@@ -412,7 +423,7 @@ class SaveBestCallback(TrainerCallback):
 
             # Save adapter weights using standard PEFT method
             logger.info("Saving PEFT adapter weights using PeftModel.save_pretrained()")
-            base_model.save_pretrained(ckpt_dir)
+            peft_module.save_pretrained(ckpt_dir)
 
             # Save custom heads and other RBM-specific parameters
             # These are not part of the PeftModel, so we save them separately

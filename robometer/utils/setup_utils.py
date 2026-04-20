@@ -750,8 +750,12 @@ def setup_model_and_processor(
                 )
         else:
             has_adapter_files = True  # treat as True so we don't skip PEFT
-    # When loading from checkpoint without adapters but use_peft: build base without PEFT, load weights, then train.py adds PEFT
-    apply_peft_before_wrap = cfg.use_peft and (not hf_model_id or has_adapter_files)
+
+    # Pre-wrap the base model as a PeftModel ONLY for fresh training (no checkpoint).
+    # For any checkpoint load we defer PEFT attachment to the load path below, which
+    # attaches PEFT to the correct submodule (language_model or visual) - matching how
+    # setup_peft_model / _save_checkpoint_files store adapters.
+    apply_peft_before_wrap = cfg.use_peft and not hf_model_id
 
     # Load processor and tokenizer
     if "SmolVLM" in cfg.base_model_id or "Qwen" in cfg.base_model_id or "Molmo" in cfg.base_model_id:
@@ -854,20 +858,36 @@ def setup_model_and_processor(
             if checkpoint_path is None:
                 raise ValueError(f"Could not resolve checkpoint path: {hf_model_id}")
 
-            # When use_peft and checkpoint has adapter files: load via PeftModel.from_pretrained + custom heads
-            # When use_peft and checkpoint has NO adapter files: we built base without PEFT; load weights only; train.py will add PEFT
+            # When use_peft and checkpoint has adapter files: attach PEFT via PeftModel.from_pretrained
+            #   to the correct submodule (whole model / language_model / visual) and load custom heads
+            # When use_peft and checkpoint has NO adapter files: load base + heads only; train.py's
+            #   setup_peft_model will attach fresh PEFT later
             if cfg.use_peft:
                 if has_adapter_files:
                     logger.info("Loading PEFT adapters using standard PeftModel.from_pretrained() method")
-                    if not isinstance(model.model, PeftModel):
-                        logger.error("CRITICAL: model.model is not a PeftModel! Cannot load adapter weights.")
-                        raise ValueError(
-                            "model.model is not a PeftModel. "
-                            "This should not happen if PEFT was applied correctly before wrapping in RBM."
-                        )
-                    logger.info("Checkpoint contains PEFT adapter files - loading using PeftModel.from_pretrained()")
+                    # Determine attachment point. Matches the save-side logic in _save_checkpoint_files:
+                    #   - legacy: whole model.model is a PeftModel
+                    #   - new: PEFT attached to model.model.language_model or model.model.visual
+                    use_vision = bool(peft_config and getattr(peft_config, "peft_vision_encoder", False))
                     try:
-                        model.model = PeftModel.from_pretrained(model.model, checkpoint_path)
+                        if isinstance(model.model, PeftModel):
+                            logger.info("Attaching loaded adapters to whole model.model (legacy whole-model PEFT)")
+                            model.model = PeftModel.from_pretrained(
+                                model.model.get_base_model(), checkpoint_path
+                            )
+                        else:
+                            target_attr = "visual" if use_vision else "language_model"
+                            if not hasattr(model.model, target_attr):
+                                raise ValueError(
+                                    f"Model has no '{target_attr}' submodule to attach PEFT adapters to"
+                                )
+                            submodule = getattr(model.model, target_attr)
+                            logger.info(f"Attaching loaded adapters to model.model.{target_attr}")
+                            setattr(
+                                model.model,
+                                target_attr,
+                                PeftModel.from_pretrained(submodule, checkpoint_path),
+                            )
                         logger.info("Successfully loaded PEFT adapters using PeftModel.from_pretrained()")
                         logger.info("Loading custom heads only (adapters already loaded)")
                         _load_checkpoint_weights_from_safetensors(model, checkpoint_path, cfg, load_adapters=False)
@@ -1041,6 +1061,25 @@ def setup_peft_model(rbm_model: RBM, cfg: PEFTConfig) -> RBM:
     """Shared function to apply PEFT configuration to the model."""
 
     logger.info("Using PEFT/LoRA training...")
+
+    # If PEFT was already attached (e.g. loaded from a checkpoint's adapter files in
+    # setup_model_and_processor), don't re-wrap - just log trainable params and return.
+    m = rbm_model.model
+    already_peft = (
+        isinstance(m, PeftModel)
+        or (hasattr(m, "language_model") and isinstance(m.language_model, PeftModel))
+        or (hasattr(m, "visual") and isinstance(m.visual, PeftModel))
+    )
+    if already_peft:
+        logger.info("PEFT already attached (likely from checkpoint load); skipping re-wrap")
+        trainable_params = sum(p.numel() for p in rbm_model.parameters() if p.requires_grad)
+        all_params = sum(p.numel() for p in rbm_model.parameters())
+        logger.info(
+            f"AFTER PEFT (already attached): trainable params: {trainable_params:,} || "
+            f"all params: {all_params:,} || trainable%: {100 * trainable_params / all_params:.4f}"
+        )
+        return rbm_model
+
     lora_config = LoraConfig(
         r=cfg.r,
         lora_alpha=cfg.lora_alpha,
