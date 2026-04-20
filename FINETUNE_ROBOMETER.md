@@ -72,7 +72,7 @@ uv run python train.py \
   model.train_progress_head=true \
   model.train_preference_head=true \
   data.train_datasets=[aliangdw_robofac_rbm_robofac] \
-  data.eval_datasets=[mw] \
+  data.eval_datasets=[aliangdw_robofac_rbm_robofac] \
   training.load_from_checkpoint=robometer/Robometer-4B \
   training.per_device_train_batch_size=8 \
   training.learning_rate=2e-5 \
